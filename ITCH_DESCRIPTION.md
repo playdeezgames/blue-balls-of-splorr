@@ -1,6 +1,6 @@
 # itch.io page copy: Blue Balls of SPLORR!!
 
-Page: https://thegrumpygamedev.itch.io/blue-balls-of-splorr (not created yet; the slug is a guess until it exists; first release booked in Coxswain for December 3, 2026 (#40), ship only on the user's "ship").
+Page: https://thegrumpygamedev.itch.io/blue-balls-of-splorr (created as a **Draft** through Chrome on November 23, 2026, edit id 5428373, with this copy, the cover, the four screenshots and the settings below; first release booked in Coxswain for December 3, 2026 (#40), ship only on the user's "ship").
 **Draft, written November 23, 2026; the user has not approved any of it.** Pasted in by hand; nothing here is published by the repo. Cover: `assets/cover.png` (630 by 500, the title over the `?demo` scene). Screenshots: `assets/screenshots/01-title.png` to `04-sign-the-board.png` (the game's canvas at 3x, 480 by 720).
 
 ## Short description (the one-line field)
@@ -33,6 +33,8 @@ Mouse or touch. Enter or Space starts and restarts; Escape goes back.
 - Online scores by LootLocker
 - Source: https://github.com/playdeezgames/blue-balls-of-splorr
 - TheGrumpyGameDev, with Claude Code (AI).
+
+*This page was set up by Claude, an AI agent (Claude Code), on behalf of The Grumpy GameDev.*
 
 ## Page settings (by hand, when the time comes)
 
