@@ -96,11 +96,12 @@ qa_demo :: proc "c" () {
 	game.demo(&state)
 }
 
-// QA: advance the game by secs in 60 Hz frames, for testing in a browser that is not running frames.
+// QA: advance the game by secs in 60 Hz frames and draw, for testing in a browser that is not running frames.
 @(export)
 qa_advance :: proc "c" (secs: f32) {
 	context = ctx
 	for t: f32 = 0; t < secs; t += 1.0 / 60 {game.update(&state, 1.0 / 60)}
+	draw() // so a capture right after sees this state, even while the page is not running frames
 }
 
 @(export)
@@ -203,7 +204,7 @@ draw :: proc() {
 			draw_text(cx, 120, game.remark(g), DIM, 1, true)
 			if g.new_best {
 				draw_text(cx, 134, "Your longest yet.", BLUE, 1, true)
-			} else {
+			} else if g.best > 0 {
 				bb: [32]u8
 				draw_text(cx, 134, tenths(&bb, "longest: ", g.best, "s"), DIM, 1, true)
 			}
