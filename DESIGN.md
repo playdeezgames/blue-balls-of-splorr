@@ -22,6 +22,13 @@
 - Keyboard (Enter, Space) and gamepad (A, Start) only start and restart; bopping is pointer only.
 - Best time is kept in `localStorage` under `blue-balls-of-splorr:best` (tenths of a second).
 
+## Online leaderboard (the user asked for it, November 23, 2026)
+
+- **The user's choices:** a LootLocker board set up through their Chrome; players **name themselves on their first score** (Chem-Grid's name rules: upper case, digits, dashes, single spaces, 16 characters).
+- LootLocker game "Blue Balls of SPLORR!!" (console id 108989), board **Longest Held**, key `blue_balls_longest`, plus `blue_balls_longest_test` for `?board=test`. Player boards, descending, Game API writes on, overwrite off (a worse run never replaces a best). Scores are tenths of a second.
+- Provisional, chosen while building: an unnamed player's result screen offers SIGN or SKIP (after the 1 s lock); SIGN opens the name screen and then the board; SKIP keeps the time (the best unsent one) for whenever a name is given. A named player's every run is sent when it ends. The title has SCORES and NAME/RENAME in the floor bar; the result screen has AGAIN and SCORES. The board shows the top 10 with your row in blue. Escape or pad B goes back.
+- Names are typed into an invisible text box so phones show their keyboard; the box mirrors into the game, which keeps only allowed characters. The name is kept in `localStorage` under `blue-balls-of-splorr:name`, the guest id under `blue-balls-of-splorr.id`.
+
 ## Tuning notes
 
 `playtest/` taps the ball nearest to landing, with a reaction time and aim error. First playable (November 23, 2026), median survival over 200 runs: slow and sloppy 19 s, casual 23 s, focused 38 s, sharp 56 s (about 11 balls up at once).

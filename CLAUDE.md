@@ -10,8 +10,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `game/`: all rules and state (physics, drops, bops, scoring, a sound queue). No JS, no `core:os`. `game_test.odin` is `#+build !js`.
 - `playtest/` (`#+build !js`, native only): scripted tappers over many runs, for tuning. Build with `odin build playtest -collection:bbs=. -o:speed -out:build/playtest`.
+- `src/lootlocker/`: the shared LootLocker package, copied unchanged from the vault's `Tech/lootlocker/` (fix bugs there first). `web/lootlocker.js` likewise.
 - `src/web/main.odin` (`#+build js`): drawing and input routing only. It imports `bbs:game` through `-collection:bbs=.`.
-- `web/index.html`: the canvas shim (drawn balls, shadows and rings; m5x7 bitmap text; Web Audio blips in `SOUNDS`, ordered like `game.Sound`), the footer back links and the hidden LootLocker feedback link (no LootLocker game yet; the user's call). The canvas backing store is drawn at the whole-number zoom so circles are smooth.
+- `web/index.html`: the canvas shim (drawn balls, shadows and rings; m5x7 bitmap text; Web Audio blips in `SOUNDS`, ordered like `game.Sound`), the footer back links and the LootLocker setup (game id 108989; the feedback link stays hidden until the console has Game feedback categories). The canvas backing store is drawn at the whole-number zoom so circles are smooth.
 
 ## Build and run
 
@@ -21,7 +22,7 @@ tools/build.sh      # build/web; --size for shipping
 python3 -m http.server -d build/web 8053
 ```
 
-`?demo` calls the `qa_demo` export (a fixed mid-run scene that never records a best). The browser pane throttles frames between tool calls.
+`?demo` calls the `qa_demo` export (a fixed mid-run scene that never records a best). `?board=test` uses the `_test` board; test there, never on the real board. The browser pane throttles frames between tool calls (and nearly stops them when hidden); `memory.exports.qa_advance(secs)` steps the game from the console.
 
 ## External resources
 

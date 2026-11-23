@@ -1,6 +1,7 @@
 #+build !js
 package game
 
+import ll "bbs:src/lootlocker"
 import "core:testing"
 
 @(private = "file")
@@ -88,4 +89,64 @@ walls_keep_balls_on_screen :: proc(t: ^testing.T) {
 	for _ in 0 ..< 30 {update(&g, 1.0 / 60)}
 	testing.expect(t, g.balls[0].x >= RADIUS)
 	testing.expect(t, g.balls[0].vx > 0)
+}
+
+@(private = "file")
+drop_now :: proc(g: ^Game) {
+	g.time = 12.3
+	g.balls[0].y = FLOOR_Y - RADIUS - 0.5
+	g.balls[0].vy = 50
+	run(g, 0.1)
+}
+
+@(test)
+an_unnamed_run_waits_for_a_name_then_goes_up_with_it :: proc(t: ^testing.T) {
+	g := one_ball(80, 100)
+	drop_now(&g)
+	testing.expect_value(t, g.phase, Phase.Over)
+	testing.expect(t, wants_name(&g))
+	testing.expect(t, !g.sent)
+	run(&g, OVER_LOCK)
+	click(&g, 40, 100) // anywhere but SKIP: sign the board
+	testing.expect_value(t, g.phase, Phase.Name)
+	for c in transmute([]u8)string("dr who!") {name_char(&g, c)}
+	click(&g, 20, FLOOR_Y + 4) // OK
+	testing.expect_value(t, ll_text(&g.name), "DR WHO")
+	testing.expect(t, g.save_name)
+	testing.expect_value(t, g.pending, 0)
+	testing.expect_value(t, g.phase, Phase.Scores)
+}
+
+@(test)
+skip_keeps_the_time_for_later_and_starts_again :: proc(t: ^testing.T) {
+	g := one_ball(80, 100)
+	drop_now(&g)
+	run(&g, OVER_LOCK)
+	click(&g, 140, FLOOR_Y + 4) // SKIP
+	testing.expect_value(t, g.phase, Phase.Playing)
+	testing.expect(t, g.pending > 0)
+}
+
+@(test)
+a_named_players_run_is_sent_at_once :: proc(t: ^testing.T) {
+	g := one_ball(80, 100)
+	for c in transmute([]u8)string("ACE") {g.name.buf[g.name.len] = c; g.name.len += 1}
+	drop_now(&g)
+	testing.expect(t, g.sent)
+	testing.expect(t, !wants_name(&g))
+	testing.expect_value(t, g.pending, 0)
+}
+
+@(test)
+an_empty_name_is_not_accepted :: proc(t: ^testing.T) {
+	g := title(1)
+	open_name(&g, .Title)
+	name_char(&g, ' ')
+	finish_name(&g)
+	testing.expect_value(t, g.phase, Phase.Name)
+}
+
+@(private = "file")
+ll_text :: proc(e: ^ll.Name_Edit) -> string {
+	return ll.name_text(e)
 }

@@ -10,25 +10,29 @@
   canvas { touch-action: none; display: block; cursor: pointer; }
   footer { margin-top: 8px; text-align: center; max-width: 90vw; }
   footer a { color: #4a4458; }
+  /* The name box: invisible, but focusable so a phone shows its keyboard. 16px stops iOS zooming in. */
+  #name-input { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; font-size: 16px; border: 0; padding: 0; }
 </style>
 </head>
 <body>
 <canvas id="screen"></canvas>
+<input id="name-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" aria-label="Your name for the board">
 <footer>
-  Blue Balls of SPLORR!! by TheGrumpyGameDev. Font m5x7 by Daniel Linssen (CC0).
-  Made in Odin by an AI agent (Claude Code) at the author's direction.<span class="ll-only" hidden> Feedback by LootLocker.</span><br>
+  Blue Balls of SPLORR!! by TheGrumpyGameDev. Font m5x7 by Daniel Linssen (CC0). Online scores by LootLocker.
+  Made in Odin by an AI agent (Claude Code) at the author's direction.<br>
   <span class="ll-only" hidden><a href="#" id="feedback-link">Send feedback</a> · </span><a href="https://thegrumpygamedev.itch.io/">itch.io</a> · <a href="https://playdeezgames.github.io/oeuvre-of-splorr/">more games</a>
 </footer>
 <script type="text/javascript" src="odin.js"></script>
 <script src="lootlocker.js"></script>
 <script>
-  // Feedback through the shared SPLORR!! LootLocker kit (splorr/Tech/LootLocker.md in the vault). This game has no
-  // LootLocker game yet: until domain and key are filled in and the console has Game feedback categories, the
-  // link stays hidden.
+  // Online scores (and, once the console has Game feedback categories, the feedback link) through the shared
+  // SPLORR!! LootLocker kit (splorr/Tech/LootLocker.md in the vault). ?board=test uses the _test twin board.
+  const LL_DOMAIN = "https://83nvc13z.api.lootlocker.com", LL_KEY = "dev_a39fd4ebe42a450a8fee7bbf6a2579a7";
+  const ll = LootLocker({ domain: LL_DOMAIN, key: LL_KEY, version: "1.0.0", idKey: "blue-balls-of-splorr.id" });
+  const testBoard = new URLSearchParams(location.search).get("board") === "test";
+  const boardFor = (k) => (testBoard ? k + "_test" : k);
   (function () {
-    const LL_DOMAIN = "", LL_KEY = "";
     if (!LL_DOMAIN || !LL_KEY) return;
-    const ll = LootLocker({ domain: LL_DOMAIN, key: LL_KEY, version: "1.0.0", idKey: "blue-balls-of-splorr.id" });
     ll.feedbackCategories("game").then(cats => {
       if (!cats.length) return;
       const feedback = ll.feedbackDialog({ game: "Blue Balls of SPLORR!!" });
@@ -154,26 +158,53 @@
     if (memory.exports && memory.exports.click) memory.exports.click(x, y);
   });
 
-  // Keyboard and gamepad only start and restart a run; bopping is by pointer. Order matches `Action`.
-  const ACTION = { confirm: 0 };
+  // Keyboard and gamepad start, restart and leave screens; bopping is by pointer. Order matches `Action`.
+  const ACTION = { confirm: 0, back: 1 };
   const send = (a) => { if (memory.exports && memory.exports.input) memory.exports.input(a); };
+  const nameInput = document.getElementById("name-input");
   addEventListener("keydown", (e) => {
-    if (!["Enter", "Space", "NumpadEnter"].includes(e.code) || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-    e.preventDefault();
-    send(ACTION.confirm);
+    if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const typing = document.activeElement === nameInput;
+    if (e.code === "Enter" || e.code === "NumpadEnter" || (e.code === "Space" && !typing)) {
+      e.preventDefault(); send(ACTION.confirm);
+    } else if (e.code === "Escape") {
+      e.preventDefault(); send(ACTION.back);
+    }
   });
-  let padConfirm = false;
+
+  // The name box mirrors into the game: every change clears the game's copy and retypes it, so phone
+  // keyboards (which often send no usable key codes) and pasting both work. The game keeps only what a
+  // name may hold.
+  nameInput.addEventListener("input", () => {
+    const ex = memory.exports;
+    if (!ex || !ex.type_clear) return;
+    ex.type_clear();
+    for (const ch of nameInput.value) ex.type_char(ch.charCodeAt(0));
+  });
+  let keyboardOn = false;
+  const nameKeyboard = (on) => {
+    if (on === keyboardOn) { if (on && document.activeElement !== nameInput) nameInput.focus({ preventScroll: true }); return; }
+    keyboardOn = on;
+    if (on) { nameInput.value = ""; nameInput.focus({ preventScroll: true }); } else { nameInput.blur(); }
+  };
+
+  let padConfirm = false, padBack = false;
   const pollPad = () => {
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    let on = false;
-    for (const p of pads) if (p && p.mapping === "standard") on = on || (p.buttons[0] && p.buttons[0].pressed) || (p.buttons[9] && p.buttons[9].pressed);
+    let on = false, back = false;
+    for (const p of pads) {
+      if (!p || p.mapping !== "standard") continue;
+      on = on || (p.buttons[0] && p.buttons[0].pressed) || (p.buttons[9] && p.buttons[9].pressed);
+      back = back || (p.buttons[1] && p.buttons[1].pressed);
+    }
     if (on && !padConfirm) send(ACTION.confirm);
-    padConfirm = on;
+    if (back && !padBack) send(ACTION.back);
+    padConfirm = on; padBack = back;
     requestAnimationFrame(pollPad);
   };
   requestAnimationFrame(pollPad);
 
-  const BEST_KEY = "blue-balls-of-splorr:best";
+  const BEST_KEY = "blue-balls-of-splorr:best", NAME_KEY = "blue-balls-of-splorr:name";
   odin.runWasm("game.wasm", null, {
     canvas: {
       fill_rect: (x, y, w, h, rgb, alpha) => {
@@ -205,7 +236,18 @@
       },
       load_best: () => { try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { return 0; } },
       save_best: (score) => { try { localStorage.setItem(BEST_KEY, String(score)); } catch (e) {} },
+      load_name: (ptr, cap) => {
+        let name = "";
+        try { name = localStorage.getItem(NAME_KEY) || ""; } catch (e) {}
+        const bytes = new Uint8Array(memory.memory.buffer, ptr, cap);
+        const n = Math.min(name.length, cap);
+        for (let i = 0; i < n; i++) bytes[i] = name.charCodeAt(i) & 0x7f;
+        return n;
+      },
+      save_name: (ptr, len) => { try { localStorage.setItem(NAME_KEY, memory.loadString(ptr, len)); } catch (e) {} },
+      name_keyboard: (on) => nameKeyboard(!!on),
     },
+    lootlocker: ll.odinImports(memory, boardFor),
   }, memory).then(() => {
     // QA: ?demo opens a fixed mid-run scene.
     if (new URLSearchParams(location.search).has("demo") && memory.exports.qa_demo) memory.exports.qa_demo();
