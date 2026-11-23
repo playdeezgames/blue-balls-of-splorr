@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blue Balls of SPLORR!!</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #d9d2c4; color: #6a6374; font: 12px/1.4 monospace; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  canvas { touch-action: none; display: block; cursor: pointer; }
+  footer { margin-top: 8px; text-align: center; max-width: 90vw; }
+  footer a { color: #4a4458; }
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<footer>
+  Blue Balls of SPLORR!! by TheGrumpyGameDev. Font m5x7 by Daniel Linssen (CC0).
+  Made in Odin by an AI agent (Claude Code) at the author's direction.<span class="ll-only" hidden> Feedback by LootLocker.</span><br>
+  <span class="ll-only" hidden><a href="#" id="feedback-link">Send feedback</a> · </span><a href="https://thegrumpygamedev.itch.io/">itch.io</a> · <a href="https://playdeezgames.github.io/oeuvre-of-splorr/">more games</a>
+</footer>
+<script type="text/javascript" src="odin.js"></script>
+<script src="lootlocker.js"></script>
+<script>
+  // Feedback through the shared SPLORR!! LootLocker kit (splorr/Tech/LootLocker.md in the vault). This game has no
+  // LootLocker game yet: until domain and key are filled in and the console has Game feedback categories, the
+  // link stays hidden.
+  (function () {
+    const LL_DOMAIN = "", LL_KEY = "";
+    if (!LL_DOMAIN || !LL_KEY) return;
+    const ll = LootLocker({ domain: LL_DOMAIN, key: LL_KEY, version: "1.0.0", idKey: "blue-balls-of-splorr.id" });
+    ll.feedbackCategories("game").then(cats => {
+      if (!cats.length) return;
+      const feedback = ll.feedbackDialog({ game: "Blue Balls of SPLORR!!" });
+      for (const el of document.querySelectorAll(".ll-only")) el.hidden = false;
+      document.getElementById("feedback-link").addEventListener("click", e => { e.preventDefault(); feedback.open(); });
+    }).catch(() => { /* offline or not set up: no link */ });
+  })();
+</script>
+<script>
+  // Logical size matches LOGICAL_W / LOGICAL_H in game/game.odin. The backing store is drawn at the zoom, so
+  // circles are smooth while the bitmap text stays crisp at a whole-number scale.
+  const W = 160, H = 240;
+  const cv = document.getElementById("screen");
+  const ctx = cv.getContext("2d");
+  let zoom = 1;
+  const css = (rgb) => "#" + (rgb >>> 0).toString(16).padStart(6, "0");
+
+  const fit = () => {
+    zoom = Math.max(1, Math.floor(Math.min(innerWidth / W, (innerHeight - 56) / H))); // room for the footer
+    cv.width = W * zoom; cv.height = H * zoom;
+    cv.style.width = W * zoom + "px"; cv.style.height = H * zoom + "px";
+    ctx.setTransform(zoom, 0, 0, zoom, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  };
+  addEventListener("resize", fit);
+  fit();
+
+  // Bitmap font: m5x7, ASCII 32..126 in a 16x6 grid of 8x9 cells, 7 rows above the baseline.
+  const FONT_W = 8, FONT_H = 9, FONT_BASE = 7;
+  const font = new Image();
+  font.src = "font.png";
+  const fontAdvance = [];
+  const fontTinted = new Map();
+  font.onload = () => {
+    const probe = document.createElement("canvas");
+    probe.width = font.width; probe.height = font.height;
+    const pc = probe.getContext("2d");
+    pc.drawImage(font, 0, 0);
+    const px = pc.getImageData(0, 0, font.width, font.height).data;
+    for (let i = 0; i < 95; i++) {
+      const cx = (i % 16) * FONT_W, cy = Math.floor(i / 16) * FONT_H;
+      let right = -1;
+      for (let x = 0; x < FONT_W; x++)
+        for (let y = 0; y < FONT_H; y++)
+          if (px[((cy + y) * font.width + cx + x) * 4 + 3] > 0) right = Math.max(right, x);
+      fontAdvance[i] = right < 0 ? 3 : right + 2; // ink plus one pixel of spacing
+    }
+  };
+  const tintedFont = (rgb) => {
+    let c = fontTinted.get(rgb);
+    if (!c) {
+      c = document.createElement("canvas");
+      c.width = font.width; c.height = font.height;
+      const g = c.getContext("2d");
+      g.drawImage(font, 0, 0);
+      g.globalCompositeOperation = "source-in";
+      g.fillStyle = css(rgb);
+      g.fillRect(0, 0, c.width, c.height);
+      fontTinted.set(rgb, c);
+    }
+    return c;
+  };
+  const drawBitmapText = (x, y, str, rgb, scale, centered) => {
+    if (!fontAdvance.length) return; // font not decoded yet
+    const idx = (ch) => { const i = ch.charCodeAt(0) - 32; return i >= 0 && i < 95 ? i : 0; };
+    let width = 0;
+    for (const ch of str) width += fontAdvance[idx(ch)] * scale;
+    let px = Math.round(centered ? x - width / 2 : x);
+    px = Math.max(1, Math.min(px, W - 1 - width)); // keep the text on screen
+    const top = Math.round(y) - FONT_BASE * scale;
+    const sheet = tintedFont(rgb);
+    for (const ch of str) {
+      const i = idx(ch);
+      ctx.drawImage(sheet, (i % 16) * FONT_W, Math.floor(i / 16) * FONT_H, FONT_W, FONT_H,
+                    px, top, FONT_W * scale, FONT_H * scale);
+      px += fontAdvance[i] * scale;
+    }
+  };
+
+  // Sounds are small synthesised blips; order matches `Sound` in game/game.odin.
+  // Each is a list of [frequency Hz, duration s] notes. Bop's pitch wanders a little so a flurry is not a drone.
+  const SOUNDS = [
+    { wave: "triangle", notes: [[440, 0.05], [660, 0.04]], wobble: 0.12 },        // Bop
+    { wave: "square", notes: [[880, 0.03], [0, 0.05], [880, 0.03]], gain: 0.04 }, // Warn
+    { wave: "triangle", notes: [[300, 0.06]] },                                   // Arrive
+    { wave: "square", notes: [[330, 0.1], [247, 0.12], [165, 0.3]] },             // Drop
+    { wave: "triangle", notes: [[1200, 0.02]], gain: 0.05 },                      // Clack
+    { wave: "triangle", notes: [[523, 0.08], [659, 0.08], [784, 0.16]] },          // Record
+  ];
+  let audio = null;
+  const unlock = () => {
+    if (audio) return;
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; }
+  };
+  addEventListener("pointerdown", unlock);
+  addEventListener("keydown", unlock);
+  const playSound = (id) => {
+    const s = SOUNDS[id];
+    if (!audio || !s) return;
+    const pitch = 1 + (s.wobble ? (Math.random() * 2 - 1) * s.wobble : 0);
+    let t = audio.currentTime;
+    for (const [f, d] of s.notes) {
+      if (f > 0) {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = s.wave; o.frequency.value = f * pitch;
+        g.gain.setValueAtTime(s.gain || 0.08, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + d);
+        o.connect(g).connect(audio.destination);
+        o.start(t); o.stop(t + d);
+      }
+      t += d;
+    }
+  };
+
+  const memory = new odin.WasmMemoryInterface();
+
+  // A tap or click, in the canvas's logical pixels.
+  cv.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect();
+    const x = Math.floor((e.clientX - r.left) * W / r.width);
+    const y = Math.floor((e.clientY - r.top) * H / r.height);
+    if (memory.exports && memory.exports.click) memory.exports.click(x, y);
+  });
+
+  // Keyboard and gamepad only start and restart a run; bopping is by pointer. Order matches `Action`.
+  const ACTION = { confirm: 0 };
+  const send = (a) => { if (memory.exports && memory.exports.input) memory.exports.input(a); };
+  addEventListener("keydown", (e) => {
+    if (!["Enter", "Space", "NumpadEnter"].includes(e.code) || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    e.preventDefault();
+    send(ACTION.confirm);
+  });
+  let padConfirm = false;
+  const pollPad = () => {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    let on = false;
+    for (const p of pads) if (p && p.mapping === "standard") on = on || (p.buttons[0] && p.buttons[0].pressed) || (p.buttons[9] && p.buttons[9].pressed);
+    if (on && !padConfirm) send(ACTION.confirm);
+    padConfirm = on;
+    requestAnimationFrame(pollPad);
+  };
+  requestAnimationFrame(pollPad);
+
+  const BEST_KEY = "blue-balls-of-splorr:best";
+  odin.runWasm("game.wasm", null, {
+    canvas: {
+      fill_rect: (x, y, w, h, rgb, alpha) => {
+        ctx.globalAlpha = alpha; ctx.fillStyle = css(rgb); ctx.fillRect(x, y, w, h); ctx.globalAlpha = 1;
+      },
+      ball: (x, y, r, squash, danger) => {
+        // Sky blue deepening to navy with danger; squash flattens it against whatever it hit.
+        const rx = r * (1 + 0.18 * squash), ry = r * (1 - 0.22 * squash);
+        const lerp = (a, b) => Math.round(a + (b - a) * danger);
+        const base = `rgb(${lerp(66, 22)},${lerp(118, 38)},${lerp(230, 120)})`;
+        const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r * 1.05);
+        g.addColorStop(0, `rgb(${lerp(190, 120)},${lerp(215, 140)},255)`);
+        g.addColorStop(0.45, base);
+        g.addColorStop(1, `rgb(${lerp(26, 10)},${lerp(48, 16)},${lerp(130, 60)})`);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(x, y + (r - ry), rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      },
+      shadow: (x, w, alpha) => {
+        ctx.globalAlpha = alpha; ctx.fillStyle = "#000";
+        ctx.beginPath(); ctx.ellipse(x, 224, w, 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      },
+      ring: (x, y, r, rgb, alpha) => {
+        ctx.globalAlpha = alpha; ctx.strokeStyle = css(rgb); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      },
+      play_sound: (id) => playSound(id),
+      draw_text: (x, y, ptr, len, rgb, scale, centered) => {
+        drawBitmapText(x, y, memory.loadString(ptr, len), rgb, scale, centered);
+      },
+      load_best: () => { try { return parseInt(localStorage.getItem(BEST_KEY), 10) || 0; } catch (e) { return 0; } },
+      save_best: (score) => { try { localStorage.setItem(BEST_KEY, String(score)); } catch (e) {} },
+    },
+  }, memory).then(() => {
+    // QA: ?demo opens a fixed mid-run scene.
+    if (new URLSearchParams(location.search).has("demo") && memory.exports.qa_demo) memory.exports.qa_demo();
+  });
+</script>
+</body>
+</html>
