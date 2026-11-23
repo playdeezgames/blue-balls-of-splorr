@@ -30,5 +30,5 @@ python3 -m http.server -d build/web 8053
 ## Release and safety rules (from the vault's `Home.md`)
 
 - Never `git push` or ship unless the user says so ("push" means `git push`; "ship" means itch.io).
-- GitHub Pages is required (no opt-out on record). The repo is local only so far; creating the GitHub repo, making it public and enabling Pages are the user's call. When it is set up, `tools/pages.sh` builds `docs/` for Pages (`main`, `/docs`).
+- GitHub Pages: the repo is public (https://github.com/playdeezgames/blue-balls-of-splorr) and Pages serves `main` `/docs` at https://playdeezgames.github.io/blue-balls-of-splorr/ (since November 23, 2026). To update it, run `tools/pages.sh`, commit `docs/`, and push only when the user says push.
 - itch.io material (`ITCH_DESCRIPTION.md`, cover, screenshots, `tools/ship.sh`, `shippit.sh`) is made only when the user decides the game goes to itch.io. On itch it is a "Metaphor", ships go through Coxswain, and anything an AI agent posts there says so.
